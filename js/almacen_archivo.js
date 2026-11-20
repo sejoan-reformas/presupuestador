@@ -216,6 +216,12 @@ async function fsDailyCopy(dataDir, json) {
 }
 
 async function initFileStorage() {
+  // En la web (tablet o cualquier sitio) no hay carpeta: se guarda en el navegador y en Drive
+  if (!isLocalOrigin) {
+    const b = document.getElementById('fileStorageBtn');
+    if (b) { b.style.display = 'none'; if (b.nextElementSibling && b.nextElementSibling.classList.contains('info-icon')) b.nextElementSibling.style.display = 'none'; }
+    fileStore.supported = false; fileStore.status = 'unsupported'; checkBackupReminder(); return;
+  }
   if (!fileStore.supported) { fileStore.status = 'unsupported'; renderFileStatus(); checkBackupReminder(); return; }
   let dir = null;
   try { dir = await fsIdbGet('dir'); } catch (e) {}

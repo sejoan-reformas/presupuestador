@@ -22,6 +22,7 @@
 
   <div class="a11y-bar" aria-label="Controles de vista y tamaño">
     <button type="button" id="fileStorageBtn" class="btn btn-a11y file-st" onclick="onFileStorageButton()">📁 Conectar carpeta de datos</button> <i class="info-icon" data-help="carpeta">i</i>
+    <button type="button" id="driveSyncBtn" class="btn btn-a11y file-st" onclick="onDriveButton()">☁️ Conectar con Drive</button> <i class="info-icon" data-help="drive">i</i>
     <div class="zoom-group" aria-label="Deshacer y rehacer">
       <button type="button" id="undoBtn" class="btn btn-a11y" onclick="doUndo()" disabled><strong>↶</strong> Deshacer</button>
       <button type="button" id="redoBtn" class="btn btn-a11y" onclick="doRedo()" disabled><strong>↷</strong></button> <i class="info-icon" data-help="deshacer">i</i>
@@ -830,6 +831,7 @@
 <script src="js/datos_calculo.js"></script>
 <script src="js/render_ui.js"></script>
 <script src="js/render_pdf.js"></script>
+<script src="js/sincro_drive.js"></script>
 <script src="js/almacen_archivo.js"></script>
 <script src="js/plantillas_biblioteca.js"></script>
 <script src="js/catalogo_ampliado.js"></script>

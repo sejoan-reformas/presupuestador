@@ -7,6 +7,7 @@
 // ============================================================
 const AYUDA = {
   // ---------- Cabecera ----------
+  drive: { t: 'Nuestros datos en el Drive de la empresa, iguales en el portátil y en la tablet.\n☁️ Sincronizado: todo al día.\n🔌 Sin internet: se guarda en este aparato y se manda solo cuando vuelva.\n🔑 Google pide confirmar cada hora: pulsa y elige la cuenta de la empresa.\nSi un mismo presupuesto se cambia a la vez en los dos aparatos, guardamos las dos versiones: nunca se pierde nada.', m: 'man-empezar' },
   carpeta: { t: 'Dónde se guardan nuestros datos.\n✅ Se guarda solo en D:\\Presupuestador_PRO\\datos, con una copia por día.\n🔓 Pulsa y da permiso.\nÁbrelo siempre con "Abrir Presupuestador.bat".', m: 'man-empezar' },
   deshacer: { t: 'Vuelve atrás el último cambio, hasta 30 pasos (atajo Ctrl+Z). ↷ o Ctrl+Y lo rehace.\nNo deshace facturas emitidas: esas se corrigen con un abono.', m: 'man-empezar' },
   zoom: { t: 'Agranda o achica todo el programa. Pulsa el % para volver al 100%. Cada ordenador recuerda el suyo.' },

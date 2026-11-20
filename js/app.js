@@ -75,6 +75,7 @@ function saveState() {
     if (!(fileStore.dirHandle && fileStore.status !== 'needs-permission')) alert('Memoria del navegador llena (reduce imágenes o conecta la carpeta de datos).');
   }
   fsScheduleSave();
+  if (typeof driveScheduleSync === 'function') driveScheduleSync();
   undoRecord();
 }
 
@@ -705,6 +706,7 @@ function resetToDemo() {
 
 function checkBackupReminder() {
   if (fileStore.status === 'ok') return;
+  if (driveSync.cfg.linked) return;
   if (document.getElementById('backupReminderBar')) return;
   let last = 0;
   try { last = Number(localStorage.getItem(BACKUP_KEY)) || 0; } catch (e) {}
@@ -720,7 +722,8 @@ function checkBackupReminder() {
        <button class="btn btn-sm" style="background:#1f2937; color:#fff;" onclick="onFileStorageButton()">🔓 Reconectar ahora</button>`
     : `⚠️ ${days === null ? 'Aún no hemos hecho ninguna copia de seguridad.' : 'Nuestra última copia de seguridad es de hace ' + days + ' días.'}
     Los datos solo están en este navegador: si se borran sus datos, se pierden.
-    ${fileStore.supported ? `<button class="btn btn-sm" style="background:#1f2937; color:#fff;" onclick="onFileStorageButton()">📁 Conectar carpeta (guardado automático)</button>` : ''}
+    ${fileStore.supported && isLocalOrigin ? `<button class="btn btn-sm" style="background:#1f2937; color:#fff;" onclick="onFileStorageButton()">📁 Conectar carpeta (guardado automático)</button>` : ''}
+    <button class="btn btn-sm" style="background:#1f2937; color:#fff;" onclick="onDriveButton()">☁️ Conectar con Drive</button>
     <button class="btn btn-sm" style="background:#1f2937; color:#fff;" onclick="exportBackup()">💾 Descargar copia ahora</button>`;
   bar.innerHTML += `
     <button class="btn btn-sm" style="background:#fff; color:#1f2937;" onclick="this.parentElement.remove()">Más tarde</button>`;
@@ -731,7 +734,8 @@ applyA11y();
 renderAll();
 undoInit();
 showGroupOf((document.querySelector(".tab-btn.active") || {}).dataset?.tab || "checklist");
-initFileStorage();
+driveLoadCfg();
+initFileStorage().finally(initDriveSync);
 // Recalibración de precios y plazos (nov 2026): copia de seguridad antes del cambio
 function ensurePricing() {
   const pr = appState.company.pricing;
