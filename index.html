@@ -1,0 +1,843 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Presupuestador PRO — Presupuestos, Materiales, Herramientas y Facturación</title>
+  <link rel="stylesheet" href="css/estilos.css">
+  <link rel="stylesheet" href="css/impresion.css">
+</head>
+<body>
+
+<div id="floatingTooltip"></div>
+
+<header class="topbar no-print">
+  <div class="brand">
+    <div id="topbarLogoContainer" class="brand-logo">RP</div>
+    <div>
+      <h1 id="topbarCompanyName">Presupuestador Reformas PRO</h1>
+      <small>Mano de Obra, Materiales Editables, Herramientas y Facturación con Series</small>
+    </div>
+  </div>
+
+  <div class="a11y-bar" aria-label="Controles de vista y tamaño">
+    <button type="button" id="fileStorageBtn" class="btn btn-a11y file-st" onclick="onFileStorageButton()">📁 Conectar carpeta de datos</button> <i class="info-icon" data-help="carpeta">i</i>
+    <div class="zoom-group" aria-label="Deshacer y rehacer">
+      <button type="button" id="undoBtn" class="btn btn-a11y" onclick="doUndo()" disabled><strong>↶</strong> Deshacer</button>
+      <button type="button" id="redoBtn" class="btn btn-a11y" onclick="doRedo()" disabled><strong>↷</strong></button> <i class="info-icon" data-help="deshacer">i</i>
+    </div>
+    <button type="button" id="themeToggleBtn" class="btn btn-a11y" onclick="toggleTheme()">🌙 Modo Oscuro</button>
+    <div class="zoom-group">
+      <button type="button" class="btn btn-a11y" onclick="changeZoom(-10)"><strong>A−</strong></button>
+      <button type="button" id="zoomDisplay" class="btn btn-a11y zoom-label" onclick="resetZoom()">100%</button>
+      <button type="button" class="btn btn-a11y" onclick="changeZoom(10)"><strong>A+</strong></button>
+    </div> <i class="info-icon" data-help="zoom">i</i>
+    <button type="button" class="btn btn-a11y" onclick="showAbout()">ℹ️ Acerca de…</button>
+  </div>
+
+  <div class="project-bar">
+    <select id="projectSelect" onchange="selectProject(this.value)"></select>
+    <button class="btn btn-sm" onclick="openProjectsOverview()">📊 Mis presupuestos</button>
+    <button class="btn btn-primary btn-sm" onclick="openNewProjectModal()"><b class="plus">+</b> Nuevo Cliente</button>
+    <button class="btn btn-dark btn-sm" onclick="duplicateCurrentProject()">Duplicar</button>
+    <button class="btn btn-danger btn-sm" onclick="deleteCurrentProject()">Eliminar</button> <i class="info-icon" data-help="barraPresupuestos">i</i>
+  </div>
+</header>
+
+<nav class="tab-groups no-print" aria-label="Bloques de la aplicación">
+  <button class="group-btn active" data-group="presu" onclick="switchGroup('presu')">📝 Presupuesto<small>para el cliente</small></button>
+  <button class="group-btn" data-group="obra" onclick="switchGroup('obra')">🔨 Obra en marcha<small>interno, nuestro</small></button>
+  <button class="group-btn" data-group="empresa" onclick="switchGroup('empresa')">⚙️ Empresa<small>ajustes y ayuda</small></button>
+</nav>
+<nav class="tabs no-print">
+  <button class="tab-btn" data-tab="visits" data-group="presu" onclick="switchTab('visits', this)">📝 Visita</button>
+  <button class="tab-btn active" data-tab="checklist" data-group="presu" onclick="switchTab('checklist', this)">📋 Partidas (Checklist)</button>
+  <button class="tab-btn" data-tab="materials" data-group="presu" onclick="switchTab('materials', this)">🧱 Materiales</button>
+  <button class="tab-btn" data-tab="costs" data-group="presu" onclick="switchTab('costs', this)">👷 Equipo y plazo</button>
+  <button class="tab-btn" data-tab="plans" data-group="presu" onclick="switchTab('plans', this)">🖼️ Planos</button>
+  <button class="tab-btn" data-tab="price" data-group="presu" onclick="switchTab('price', this)">💰 Precio</button>
+  <button class="tab-btn" data-tab="pdf" data-group="presu" onclick="switchTab('pdf', this)">📄 Vista PDF</button>
+  <button class="tab-btn" data-tab="roadmap" data-group="obra" onclick="switchTab('roadmap', this)">🗓️ Plan de obra</button>
+  <button class="tab-btn" data-tab="tools" data-group="obra" onclick="switchTab('tools', this)">🧰 Herramientas</button>
+  <button class="tab-btn" data-tab="staff" data-group="obra" onclick="switchTab('staff', this)">👥 Días y pagos</button>
+  <button class="tab-btn" data-tab="realhours" data-group="obra" onclick="switchTab('realhours', this)">⏱️ Horas reales</button>
+  <button class="tab-btn" data-tab="invoices" data-group="obra" onclick="switchTab('invoices', this)">🧾 Facturas</button>
+  <button class="tab-btn" data-tab="calcdata" data-group="empresa" onclick="switchTab('calcdata', this)">📋 Datos de cálculo</button>
+  <button class="tab-btn" data-tab="settings" data-group="empresa" onclick="switchTab('settings', this)">⚙️ Empresa y ajustes</button>
+  <button class="tab-btn" data-tab="manual" data-group="empresa" onclick="switchTab('manual', this)">📖 Manual</button>
+</nav>
+
+<main class="container">
+  <div id="privateKpiBar" class="kpi-grid no-print"></div>
+
+  <!-- PESTAÑA 1: CHECKLIST MANO DE OBRA -->
+  <section id="panel-visits" class="tab-panel">
+    <div id="visitsView"></div>
+  </section>
+
+  <section id="panel-checklist" class="tab-panel active">
+    <div id="visitNotesBox"></div>
+    <div class="card">
+      <div class="card-header">
+        <h2 class="card-title">Datos del Cliente y Obra Actual</h2>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <button class="btn btn-sm" onclick="saveCurrentAsTemplate()" title="Guarda capítulos, partidas y equipo de este presupuesto para reutilizarlos">💾 Guardar como plantilla</button> <i class="info-icon" data-help="plantilla">i</i>
+          <button class="btn btn-sm btn-primary" onclick="openNewChapterModal()"><b class="plus">+</b> Nuevo Capítulo</button>
+        </div>
+      </div>
+      <div class="form-grid">
+        <div class="form-group"><label>Nombre Presupuesto (Uso interno) <i class="info-icon" data-help="nombrePres">i</i></label><input type="text" id="projTitle" onchange="updateProjField('title', this.value)"></div>
+        <div class="form-group"><label>Nº Presupuesto <i class="info-icon" data-help="numPres">i</i></label><input type="text" id="projCode" onchange="updateProjField('code', this.value)"></div>
+        <div class="form-group"><label>Fecha <i class="info-icon" data-help="fechaPres">i</i></label><input type="date" id="projDate" onchange="updateProjField('date', this.value)"></div>
+        <div class="form-group"><label>Nombre / Razón Social Cliente <i class="info-icon" data-help="clienteNombre">i</i></label><input type="text" id="clientName" onchange="updateClientField('name', this.value)"></div>
+        <div class="form-group"><label>DNI / NIF Cliente <i class="info-icon" data-help="clienteDni">i</i></label><input type="text" id="clientNif" onchange="updateClientField('nif', this.value)"></div>
+        <div class="form-group"><label>Teléfono Cliente <i class="info-icon" data-help="clienteTel">i</i></label><input type="text" id="clientPhone" onchange="updateClientField('phone', this.value)"></div>
+        <div class="form-group"><label>Dirección de la Obra <i class="info-icon" data-help="clienteDir">i</i></label><input type="text" id="clientProjectAddress" onchange="updateClientField('projectAddress', this.value)"></div>
+        <div class="form-group">
+          <label>IVA Mano de Obra <i class="info-icon" data-help="iva">i</i></label>
+          <select id="projIva" onchange="updateProjField('ivaPct', parseFloat(this.value))">
+            <option value="10">10% (Vivienda habitual)</option>
+            <option value="21">21% (IVA General)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Estado del presupuesto <i class="info-icon" data-help="estado">i</i> <span id="projStatusDate" style="font-weight:400;"></span></label>
+          <select id="projStatus" onchange="setProjectStatus(this.value)">
+            <option value="borrador">📝 Borrador (preparándolo)</option>
+            <option value="enviado">📨 Enviado (esperando respuesta)</option>
+            <option value="aceptado">✅ Aceptado por el cliente</option>
+            <option value="rechazado">❌ Rechazado</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <div class="checklist-tools">
+      <div class="lf-slot" data-list-filter data-id="lfChecklist" data-scope="#chaptersContainer" data-rows=".items-table tbody tr.item-row" data-groups=".chapter-box" data-placeholder="Buscar partida (ej: alicatado, enchufe, pladur…)"></div>
+      <div id="viewToggle" class="view-toggle"></div>
+    </div>
+    <div id="chaptersContainer"></div>
+  </section>
+
+  <!-- PESTAÑA 2: MATERIALES DE OBRA Y CATÁLOGO EDITABLE -->
+  <section id="panel-materials" class="tab-panel">
+    <div class="card">
+      <div class="card-header">
+        <h2 class="card-title">
+          Lista Aproximada de Materiales de Esta Obra (Editable a la realidad)
+          <i class="info-icon" data-help="listaMateriales">i</i>
+        </h2>
+        <button class="btn btn-sm btn-primary" onclick="openAddExtraMatModal()"><b class="plus">+</b> Añadir Material Suelto</button> <i class="info-icon" data-help="materialSuelto">i</i>
+      </div>
+      <div class="lf-slot" data-list-filter data-id="lfMaterials" data-scope="#projectMaterialsView" data-rows="tbody tr, .extra-mat-row" data-placeholder="Buscar material de esta obra (ej: cola, saco, tubo)…"></div>
+      <div id="projectMaterialsView"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <h2 class="card-title">Catálogo Maestro de Precios de Mercado (Obramat / Leroy Merlin - Editable) <i class="info-icon" data-help="catalogo">i</i> <span style="font-weight:500; font-size:0.8em; color:var(--text-muted);">· precios CON IVA, revisados nov 2026</span></h2>
+        <button class="btn btn-sm btn-primary" onclick="openAddCatalogMatModal()"><b class="plus">+</b> Nuevo Material al Catálogo</button>
+      </div>
+      <div class="form-group" style="max-width:24rem; margin-bottom:0.8rem;">
+        <input type="text" id="catalogSearch" placeholder="🔍 Buscar material (ej: pvc, lija, arena, ventana...)" oninput="renderMaterialsTab(getCurrentProject(), calculateProjectEconomics(getCurrentProject()))">
+      </div>
+      <div id="materialsCatalogView" class="table-wrap"></div>
+    </div>
+  </section>
+
+  <!-- PESTAÑA 3: EQUIPO, GASTOS Y FORMA DE PAGO -->
+  <section id="panel-costs" class="tab-panel">
+    <p class="modal-intro">En cada obra solo elegimos <strong>quién va</strong>, los <strong>kilómetros</strong> y, si conocemos la obra, <strong>ajustas el plazo</strong>. Todo lo demás (sueldos, comidas, recargo, cobro…) está en <strong>⚙️ Empresa → 📋 Datos de cálculo</strong> y vale para todas las obras.</p>
+    <div id="teamView"></div>
+
+    <div class="card eq-card eq-summary">
+      <details id="eqSummaryDetails">
+        <summary><span class="eq-icon">📊</span> <span class="eq-name">Resumen: lo que nos cuesta, lo que cobramos y lo que ganamos</span> <i class="info-icon" data-help="desglose">i</i> <span class="eq-sub">(pulsa para ver el desglose)</span></summary>
+        <div id="financialBreakdown"></div>
+      </details>
+      <div id="eqSummaryLine" class="eq-summary-line"></div>
+    </div>
+  </section>
+
+  <!-- PESTAÑA 4: HERRAMIENTAS DE OBRA -->
+  <section id="panel-tools" class="tab-panel">
+    <div class="card">
+      <div class="card-header">
+        <h2 class="card-title">Lista de Herramientas de Trabajo (Por Fase y Nº de Operarios) <i class="info-icon" data-help="herramientas">i</i></h2>
+        <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+          <select id="toolPhaseFilter" style="width:auto;" onchange="renderToolsTab(getCurrentProject(), calculateProjectEconomics(getCurrentProject()))"><option value="all">Ver todas las fases activas</option></select>
+          <button class="btn btn-sm btn-primary" onclick="openAddToolModal()"><b class="plus">+</b> Añadir Herramienta</button>
+        </div>
+      </div>
+      <div class="lf-slot" data-list-filter data-id="lfTools" data-scope="#toolsListView" data-rows=".tool-row" data-groups=".tool-phase-box" data-placeholder="Buscar herramienta (ej: radial, nivel, EPI)…"></div>
+      <div id="toolsListView"></div>
+    </div>
+  </section>
+
+  <!-- PESTAÑA 5: PLANOS Y FOTOS -->
+  <section id="panel-plans" class="tab-panel">
+    <div class="card">
+      <div class="card-header">
+        <h2 class="card-title">Anexo Gráfico: Planos, Croquis y Fotos de la Obra <i class="info-icon" data-help="planos">i</i></h2>
+        <label class="btn btn-primary" style="cursor:pointer;"><b class="plus">+</b> Subir Plano / Foto<input type="file" accept="image/*" multiple style="display:none;" onchange="handlePlanImagesUpload(this.files)"></label>
+      </div>
+      <div id="imagesGrid" class="images-grid"></div>
+    </div>
+  </section>
+
+  <!-- PESTAÑA 6: ROADMAP -->
+  <section id="panel-roadmap" class="tab-panel">
+    <div class="card">
+      <div class="card-header">
+        <h2 class="card-title">Roadmap Automático de Ejecución de Obra <i class="info-icon" data-help="roadmap">i</i></h2>
+        <div class="form-group" style="min-width:200px;"><label>Fecha prevista inicio de obra <i class="info-icon" data-help="fechaInicio">i</i></label><input type="date" id="projStartDate" onchange="updateProjField('startDate', this.value)"></div>
+      </div>
+      <div id="roadmapInternalView"></div>
+    </div>
+  </section>
+
+  <!-- PESTAÑA 7: FACTURAS Y ABONOS (RECTIFICATIVAS) -->
+  <section id="panel-invoices" class="tab-panel">
+    <div class="card">
+      <div class="card-header">
+        <h2 class="card-title">
+          Emisión de Facturas y Abonos (Series Oficiales)
+          <i class="info-icon" data-help="facturas">i</i>
+        </h2>
+      </div>
+      <div id="invoicesControlView"></div>
+    </div>
+    <div class="card">
+      <div class="card-header"><h2 class="card-title">Historial de Facturas y Abonos de Esta Obra</h2></div>
+      <div class="lf-slot" data-list-filter data-id="lfInvoices" data-scope="#invoicesListView" data-rows="tbody tr" data-placeholder="Buscar factura (nº, concepto, fecha…)"></div>
+      <div id="invoicesListView" class="table-wrap"></div>
+    </div>
+  </section>
+
+  <!-- PESTAÑA 8: PRESUPUESTO O FACTURA CLIENTE / PDF -->
+  <section id="panel-pdf" class="tab-panel">
+    <div class="card no-print" id="pdfToolbar" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;"></div>
+    <div id="pdfPreviewContainer"></div>
+  </section>
+
+  <!-- PESTAÑA 9: EMPRESA, SERIES DE FACTURACIÓN Y COPIAS -->
+  <section id="panel-calcdata" class="tab-panel">
+    <div id="calcDataView"></div>
+    <div class="card">
+      <div class="card-header"><h2 class="card-title">🏢 Gastos fijos de la empresa (al mes) y jornada <i class="info-icon" data-help="chkGastosFijos">i</i></h2></div>
+      <div class="form-grid">
+        <div class="form-group"><label>Días laborables al mes <i class="info-icon" data-help="diasMes">i</i></label><input type="number" id="compWorkDays" onchange="updateCompanyField('workDaysPerMonth', parseFloat(this.value)||21)"></div>
+        <div class="form-group"><label>Horas por jornada <i class="info-icon" data-help="horasJornada">i</i></label><input type="number" id="compHoursDay" onchange="updateCompanyField('hoursPerDay', parseFloat(this.value)||8)"></div>
+        <div class="form-group"><label>Gestoría (€/mes) <i class="info-icon" data-help="gastoFijo">i</i></label><input type="number" id="compGestoria" onchange="updateCompanyField('monthlyGestoria', parseFloat(this.value)||0)"></div>
+        <div class="form-group"><label>Seguros RC (€/mes) <i class="info-icon" data-help="gastoFijo">i</i></label><input type="number" id="compInsurance" onchange="updateCompanyField('monthlyInsurance', parseFloat(this.value)||0)"></div>
+        <div class="form-group"><label>Coche y otros gastos fijos (€/mes) <i class="info-icon" data-help="gastoFijo">i</i></label><input type="number" id="compOtherOverhead" onchange="updateCompanyField('monthlyOtherOverhead', parseFloat(this.value)||0)"></div>
+      </div>
+      <div id="fixedCostsView" style="margin-top:0.8rem;"></div>
+    </div>
+  </section>
+
+  <section id="panel-settings" class="tab-panel">
+    <div class="card">
+      <div class="card-header"><h2 class="card-title">Logo y Datos Fiscales de nuestra Empresa</h2></div>
+      <div class="form-grid">
+        <div class="form-group"><label>Subir Logo de Empresa (PNG / JPG / SVG) <i class="info-icon" data-help="logo">i</i></label><input type="file" accept="image/*" onchange="handleLogoUpload(this.files[0])"><div id="settingsLogoPreview" style="margin-top:8px;"></div></div>
+        <div class="form-group"><label>Nombre / Razón Social <i class="info-icon" data-help="razonSocial">i</i></label><input type="text" id="compName" onchange="updateCompanyField('name', this.value)"></div>
+        <div class="form-group"><label>CIF / NIF <i class="info-icon" data-help="cif">i</i></label><input type="text" id="compCif" onchange="updateCompanyField('cif', this.value)"></div>
+        <div class="form-group"><label>Teléfono <i class="info-icon" data-help="contacto">i</i></label><input type="text" id="compPhone" onchange="updateCompanyField('phone', this.value)"></div>
+        <div class="form-group"><label>Email <i class="info-icon" data-help="contacto">i</i></label><input type="email" id="compEmail" onchange="updateCompanyField('email', this.value)"></div>
+        <div class="form-group"><label>Dirección Fiscal <i class="info-icon" data-help="dirFiscal">i</i></label><input type="text" id="compAddress" onchange="updateCompanyField('address', this.value)"></div>
+        <div class="form-group"><label>Cuenta Bancaria / IBAN (sale en facturas) <i class="info-icon" data-help="iban">i</i></label><input type="text" id="compIban" placeholder="ES00 0000 0000 00 0000000000" onchange="updateCompanyField('iban', this.value)"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <h2 class="card-title">
+          Series de Facturación (Normal y Abonos/Rectificativas)
+          <i class="info-icon" data-help="series">i</i>
+        </h2>
+      </div>
+      <div class="form-grid">
+        <div class="form-group"><label>Prefijo Serie Normal <i class="info-icon" data-help="series">i</i></label><input type="text" id="compInvPrefix" onchange="updateCompanyField('invNormalPrefix', this.value)"></div>
+        <div class="form-group"><label>Siguiente Nº Factura Normal <i class="info-icon" data-help="siguienteNum">i</i></label><input type="number" min="1" step="1" id="compInvNext" onchange="updateCompanyField('invNormalNext', parseInt(this.value)||1)"></div>
+        <div class="form-group"><label>Prefijo Serie Abono / Rectificativa <i class="info-icon" data-help="series">i</i></label><input type="text" id="compRectPrefix" onchange="updateCompanyField('invRectPrefix', this.value)"></div>
+        <div class="form-group"><label>Siguiente Nº Abono / Rectificativa <i class="info-icon" data-help="siguienteNum">i</i></label><input type="number" min="1" step="1" id="compRectNext" onchange="updateCompanyField('invRectNext', parseInt(this.value)||1)"></div>
+      </div>
+    </div>
+
+    
+    
+    
+    
+
+    <div class="card">
+      <div class="card-header">
+        <h2 class="card-title">📅 Festivos (<span id="holidayCount">0</span>)
+          <i class="info-icon" data-help="festivos">i</i>
+        </h2>
+        <button class="btn btn-sm" onclick="resetHolidays()">↺ Lista oficial Málaga</button>
+      </div>
+      <div class="form-group"><textarea rows="8" id="compHolidays" style="font-family:ui-monospace,Consolas,monospace;" onchange="updateHolidaysFromText(this.value)"></textarea></div>
+      <small style="color:var(--text-muted);">Formato: <code>19/08/2027  Feria</code>. Los cambios se aplican al salir de la casilla. Añade los de 2028 cuando se publiquen.</small>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><h2 class="card-title">Condiciones Generales (Presupuestos) <i class="info-icon" data-help="condiciones">i</i></h2></div>
+      <div class="form-group"><textarea rows="5" id="compConditions" onchange="updateCompanyField('conditions', this.value)"></textarea></div>
+      <div class="form-group"><label>⚠️ Imprevistos y posibles variaciones (sale en el PDF) <i class="info-icon" data-help="variaciones">i</i></label>
+        <textarea rows="8" id="compVariations" onchange="updateCompanyField('variationsText', this.value)"></textarea>
+        <button class="btn btn-sm" onclick="if(confirm('¿Volver al texto de imprevistos por defecto?')) updateCompanyField('variationsText', '')">↺ Texto por defecto</button></div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <h2 class="card-title">📚 Mi Biblioteca de Partidas (<span id="libCount">0</span>)
+          <i class="info-icon" data-help="bibliotecaGestion">i</i>
+        </h2>
+        <input type="text" id="libManagerSearch" placeholder="🔍 Buscar en la biblioteca" style="max-width:20rem;" oninput="renderLibraryManager()">
+      </div>
+      <div id="libraryManagerView" class="table-wrap" style="max-height:28rem; overflow:auto;"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><h2 class="card-title">Copias de Seguridad <i class="info-icon" data-help="copias">i</i></h2></div>
+      <div style="display:flex; gap:10px; flex-wrap:wrap;">
+        <button class="btn btn-primary" onclick="exportBackup()">💾 Descargar Copia (.json)</button>
+        <label class="btn" style="cursor:pointer;">📂 Restaurar Copia (.json)<input type="file" accept=".json" style="display:none;" onchange="importBackup(this.files[0])"></label>
+        <button class="btn btn-danger" onclick="resetToDemo()">🔄 Restablecer Datos Iniciales</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- PESTAÑA 10: HORAS REALES -->
+  <section id="panel-price" class="tab-panel">
+    <div id="priceView"></div>
+  </section>
+
+  <section id="panel-staff" class="tab-panel">
+    <div id="staffView"></div>
+  </section>
+
+  <section id="panel-realhours" class="tab-panel">
+    <div class="card">
+      <div class="card-header">
+        <h2 class="card-title">⏱️ Horas Reales vs Presupuestadas
+          <i class="info-icon" data-help="horasReales">i</i>
+        </h2>
+      </div>
+      <div class="lf-slot" data-list-filter data-id="lfRealHours" data-scope="#realHoursView" data-rows=".items-table tbody tr" data-placeholder="Buscar partida…"></div>
+      <div id="realHoursView"></div>
+    </div>
+  </section>
+
+  <!-- PESTAÑA 11: MANUAL DE USO -->
+  <section id="panel-manual" class="tab-panel">
+    <div class="card man">
+      <div class="card-header"><h2 class="card-title">📖 Manual de Uso — paso a paso</h2></div>
+
+      <p class="man-intro">Este programa sirve para hacer <strong>presupuestos de mano de obra</strong> de reformas, sacarlos en PDF para el cliente y, cuando la obra avanza, hacer las <strong>facturas</strong>. No hace falta saber de informática: sigue los pasos en orden.</p>
+
+      <nav class="man-index" aria-label="Índice del manual">
+        <a href="#man-empezar">1. Antes de empezar</a>
+        <a href="#man-empresa">2. Ajustes de nuestra empresa (solo la 1ª vez)</a>
+        <a href="#man-nuevo">3. Hacer un presupuesto nuevo</a>
+        <a href="#man-cliente">4. Datos del cliente</a>
+        <a href="#man-partidas">5. Capítulos y partidas</a>
+        <a href="#man-equipo">6. Equipo, gastos y beneficio</a>
+        <a href="#man-materiales">7. Materiales</a>
+        <a href="#man-otras">8. Herramientas, planos y calendario</a>
+        <a href="#man-pdf">9. Sacar el PDF para el cliente</a>
+        <a href="#man-horas">9b. Horas reales de la obra</a>
+        <a href="#man-pagos">9c. Días y pagos al personal</a>
+        <a href="#man-visitas">9d. Visita a pie de obra (tablet)</a>
+        <a href="#man-precio">9e. La pantalla de Precio</a>
+        <a href="#man-facturas">10. Facturas y abonos</a>
+        <a href="#man-copias">11. Copias de seguridad</a>
+        <a href="#man-problemas">12. Problemas frecuentes</a>
+        <a href="#man-glosario">13. Palabras raras explicadas</a>
+      </nav>
+
+      <!-- 1 -->
+      <h3 id="man-empezar" class="man-h">1. Antes de empezar</h3>
+      <ol class="man-steps">
+        <li><strong>Abrir el programa:</strong> doble clic en <code>Abrir Presupuestador.bat</code>, dentro de la carpeta <code>Presupuestador_PRO</code>. Se abre en Chrome (dirección <code>127.0.0.1:8777</code>). No necesita internet. La primera vez, al conectar la carpeta, elige <strong>"Permitir en cada visita"</strong> y ya no volverá a preguntar.</li>
+        <li><strong>Usa Google Chrome o Microsoft Edge.</strong> Con otros navegadores no se puede guardar en la carpeta.</li>
+        <li><strong>La primera vez, conecta la carpeta:</strong> arriba a la derecha pulsa <span class="man-btn">📁 Conectar carpeta de datos</span>, elige la carpeta <code>Presupuestador_PRO</code> (la que tiene <code>index.html</code>), pulsa "Seleccionar carpeta" y, si lo pregunta, <strong>"Editar archivos" / "Permitir"</strong>. Si aparece la opción "Permitir siempre" o "en cada visita", elígela.</li>
+        <li><strong>¿Nos hemos equivocado?</strong> Pulsa <span class="man-btn">↶ Deshacer</span> (arriba) o <strong>Ctrl+Z</strong> para volver atrás, hasta 30 pasos; <span class="man-btn">↷</span> o <strong>Ctrl+Y</strong> para rehacer. Sirve para partidas borradas, mediciones, capítulos… Lo único que no deshace es una <strong>factura emitida</strong>: esas se corrigen con un abono.</li>
+        <li><strong>Todo se guarda solo</strong>, en cuanto escribimos algo, dentro de la carpeta del programa: <code>datos\presupuestador_datos.json</code>. No hay botón de "Guardar". Arriba veremos <span class="man-btn">✅ Guardado en carpeta</span> con la hora.</li>
+        <li><strong>Si al abrir vemos <span class="man-btn">🔓 Reconectar carpeta de datos</span></strong>, púlsalo y acepta: el navegador a veces pide el permiso otra vez. Hasta que lo hagamos, lo que escribamos se queda en el navegador y se pasa a la carpeta en cuanto reconectes.</li>
+        <li><strong>Tamaño de letra:</strong> arriba a la derecha, <span class="man-btn">A−</span> y <span class="man-btn">A+</span>. Pulsando el porcentaje vuelve al 100%. El botón <span class="man-btn">🌙 Modo Oscuro</span> cambia a fondo oscuro.</li>
+        <li><strong>Los botoncitos <span class="man-i">i</span></strong> explican cosas: pasa el ratón por encima o púlsalos.</li>
+        <li><strong>Buscador 🔍:</strong> encima de cada lista larga (partidas, materiales, herramientas, facturas, presupuestos…) hay una caja de búsqueda. Escribe una o varias palabras, da igual tildes y mayúsculas; abajo a la derecha nos dice cuántos encuentra ("5 de 39"). <strong>Esc</strong> o la <strong>✕</strong> la vacían. En las listas desplegables de materiales, la caja de búsqueda está justo encima.</li>
+      </ol>
+      <div class="man-tip"><strong>Las 11 pestañas</strong> (fila de arriba) son pasos de trabajo. El orden normal es: <strong>9 Empresa</strong> (una vez) → <strong>1 Checklist</strong> → <strong>3 Equipo</strong> → <strong>2 Materiales</strong> → <strong>6 Roadmap</strong> → <strong>8 Vista PDF</strong> → durante la obra <strong>10 Horas Reales</strong> → y al final <strong>7 Facturas</strong>.</div>
+      <div class="man-tip">Las 4 tarjetas de colores de arriba (precio, extras, gastos, beneficio) son <strong>solo para nosotros</strong>: nunca salen en el PDF del cliente.</div>
+
+      <!-- 2 -->
+      <h3 id="man-empresa" class="man-h">2. Ajustes de nuestra empresa (solo la primera vez)</h3>
+      <p>Pestaña <span class="man-tab">⚙️ Empresa</span>. Lo que pongamos aquí sale en todos los presupuestos y facturas.</p>
+      <ol class="man-steps">
+        <li><strong>Logo:</strong> pulsa "Subir Logo de Empresa" y elige la imagen.</li>
+        <li><strong>Datos fiscales:</strong> rellena Nombre / Razón Social, <strong>CIF / NIF</strong>, Teléfono, Email, Dirección Fiscal e <strong>IBAN</strong> (la cuenta donde nos pagan; sale en las facturas).
+          <div class="man-warn">Sin NIF podemos mandar presupuestos, pero <strong>no facturas</strong>: una factura sin NIF no es válida. Mientras falte, la Vista PDF de una factura muestra un aviso rojo.</div></li>
+        <li><strong>Series de facturación:</strong> déjalas como están (<code>F-2026-</code> para facturas y <code>R-2026-</code> para abonos). Los números avanzan solos y <strong>al cambiar de año se ponen solos en 2027 empezando por el 001</strong>.
+          <div class="man-warn">No cambies "Siguiente Nº" salvo que vengamos de facturar con otro programa: en España los números no pueden saltarse ni repetirse.</div></li>
+        <li><strong>Gastos fijos mensuales:</strong> días laborables al mes (normalmente 21), horas por jornada (8), y lo que pagamos al mes de gestoría, seguro de responsabilidad civil y otros. El programa los reparte por día de obra para que no los pierdas.</li>
+        <li><strong>Condiciones generales:</strong> el texto legal que sale al final del presupuesto (validez, forma de pago, qué no incluye…). Escríbelo una vez y vale para todos.</li>
+      </ol>
+
+      <!-- 3 -->
+      <h3 id="man-nuevo" class="man-h">3. Hacer un presupuesto nuevo</h3>
+      <p>Arriba del todo, a la derecha, está la barra de presupuestos:</p>
+      <ul class="man-list">
+        <li><span class="man-btn"><b class="plus">+</b> Nuevo Cliente</span> → escribe el nombre (por ejemplo "Reforma baño — Calle Larios") y elige <strong>cómo empezar</strong>:
+          <ul>
+            <li><strong>📄 En blanco:</strong> solo los capítulos; añadimos las partidas nosotros, normalmente desde nuestra biblioteca.</li>
+            <li><strong>🏠 Copia del ejemplo:</strong> todas las partidas del piso de Fuengirola; pon en NO o borra las que no hagan falta.</li>
+            <li><strong>⭐ Nuestras plantillas:</strong> las que hayamos guardado (ver abajo). El 🗑 de al lado borra la plantilla.</li>
+          </ul>
+          Pulsa <span class="man-btn man-btn-blue">Crear presupuesto</span>. Se le da número solo (<code>PRES-2026-002</code>, etc.) y copia nuestro equipo, sueldos y gastos.</li>
+        <li><span class="man-btn">💾 Guardar como plantilla</span> (pestaña «Partidas», arriba): guarda los capítulos, partidas y equipo del presupuesto abierto con un nombre ("Baño completo", "Cocina"…) para empezar así la próxima vez. Si usamos el mismo nombre, la sustituye.</li>
+        <li><span class="man-btn">Duplicar</span> → copia el presupuesto que tenemos abierto (sin sus facturas). Úsalo cuando una obra se parece a otra que ya hicimos, o para dar al cliente dos versiones (la copia lleva "-B" en el número).</li>
+        <li><strong>Cambiar de presupuesto:</strong> elige otro en el desplegable de la izquierda de esos botones (cada uno lleva el icono de su estado).</li>
+        <li><span class="man-btn">📊 Mis presupuestos</span>: la lista de todos nuestros presupuestos con su estado, importe, lo facturado y lo pendiente. Arriba tenemos cuántos hay de cada estado (pulsa uno para filtrar), nuestra <strong>tasa de cierre</strong> y el dinero aceptado que falta por facturar. Si un presupuesto lleva <strong>7 días enviado sin respuesta</strong>, sale <strong>📞 Llamar al cliente</strong>. El botón <strong>Abrir</strong> nos lleva a él.</li>
+        <li><span class="man-btn man-btn-red">Eliminar</span> → borra el presupuesto abierto (pide confirmación). Siempre tiene que quedar al menos uno.</li>
+      </ul>
+
+      <!-- 4 -->
+      <h3 id="man-cliente" class="man-h">4. Datos del cliente</h3>
+      <p>Pestaña <span class="man-tab">📋 Partidas</span>, recuadro de arriba "Datos del Cliente y Obra Actual":</p>
+      <ul class="man-list">
+        <li><strong>Nombre Presupuesto:</strong> solo para nosotros, para encontrarlo en el desplegable.</li>
+        <li><strong>Nº Presupuesto y Fecha:</strong> ya vienen puestos; cámbialos si queremos.</li>
+        <li><strong>Cliente:</strong> nombre, DNI/NIF (necesario si luego le facturas), teléfono y dirección de la obra.</li>
+        <li><strong>Estado del presupuesto:</strong> 📝 Borrador → 📨 Enviado → ✅ Aceptado o ❌ Rechazado. Se guarda la fecha de cada cambio. Al imprimir el presupuesto nos pregunta si lo hemos enviado, y al hacerle una factura se marca solo como Aceptado.</li>
+        <li><strong>IVA:</strong> <strong>10%</strong> si es la vivienda habitual de un particular; <strong>21%</strong> para locales, negocios o empresas. Si dudas, pregunta a la gestoría.</li>
+      </ul>
+
+      <!-- 5 -->
+      <h3 id="man-partidas" class="man-h">5. Capítulos y partidas (lo más importante)</h3>
+      <p>Un <strong>capítulo</strong> es un grupo de trabajos ("Fontanería", "Pintura"…). Una <strong>partida</strong> es cada trabajo concreto ("Alicatado de baño").</p>
+
+      <h4 class="man-h4">Capítulos</h4>
+      <ul class="man-list">
+        <li><span class="man-btn"><b class="plus">+</b> Nuevo Capítulo</span> (arriba a la derecha de los datos del cliente) → escribe el nombre → Crear.</li>
+        <li>En la cabecera de cada capítulo:
+          <span class="man-btn">📌 En Base</span> = entra en el precio del presupuesto.
+          Púlsalo y pasa a <span class="man-btn man-btn-orange">✨ Extra Opcional</span> = se ofrece aparte, al final del PDF, y <strong>no se suma</strong> al total (el cliente decide si lo quiere).</li>
+        <li><span class="man-btn"><b class="plus">+</b> Añadir Partida</span> añade un trabajo a ese capítulo. <span class="man-btn man-btn-red">🗑</span> borra el capítulo <strong>con todas sus partidas</strong>.</li>
+      </ul>
+
+      <h4 class="man-h4">Mi biblioteca de partidas (lo más rápido)</h4>
+      <p>Es nuestro archivo de trabajos ya calculados, con sus horas, precios y receta de materiales, para no tener que escribirlos otra vez. Empieza con las partidas del ejemplo.</p>
+      <ul class="man-list">
+        <li><strong>Guardar una partida:</strong> en su fila, botón <span class="man-btn">📚</span>. Si ya existe una con el mismo nombre, nos pregunta si la actualizas. Así, cuando afinas las horas de un trabajo, la biblioteca aprende.</li>
+        <li><strong>Usarla:</strong> <span class="man-btn"><b class="plus">+</b> Añadir Partida</span> → arriba, en "📚 Desde mi biblioteca", escribe una palabra (alicatado, pladur…), pon la medición en la casilla de la derecha y pulsa <span class="man-btn man-btn-blue"><b class="plus">+</b> Añadir</span>.</li>
+        <li><strong>Ver o borrar la biblioteca:</strong> pestaña <span class="man-tab">⚙️ Empresa</span>, recuadro "📚 Mi Biblioteca de Partidas".</li>
+      </ul>
+
+      <h4 class="man-h4">Añadir una partida nueva a mano</h4>
+      <ol class="man-steps">
+        <li>Pulsa <span class="man-btn"><b class="plus">+</b> Añadir Partida</span> en el capítulo y usa la parte de abajo, "✏️ O crea una partida nueva".</li>
+        <li>Escribe <strong>Nombre</strong> y una <strong>Descripción</strong> corta (sale en el PDF; explica qué incluye).</li>
+        <li><strong>Fase Roadmap:</strong> en qué momento de la obra se hace (demolición, instalaciones, acabados…). Sirve para el calendario.</li>
+        <li><strong>Unidad y Medición:</strong> m², ml, ud, PA u horas (ver <a href="#man-glosario">palabras raras</a>) y cuántas.</li>
+        <li><strong>h/ud:</strong> cuántas horas tarda <strong>una persona</strong> en hacer <strong>una unidad</strong>. Ejemplo: si alicatar 1 m² le lleva a un oficial media hora, pon <code>0,5</code>.</li>
+        <li>Pulsa <span class="man-btn man-btn-blue">Añadir</span>.</li>
+      </ol>
+
+      <h4 class="man-h4">Dos vistas: compacta y detallada</h4>
+      <p>Arriba de los capítulos, a la derecha del buscador, elegimos la <strong>Vista</strong>:</p>
+      <ul class="man-list">
+        <li><span class="man-btn">☰ Compacta</span> (normal): <strong>una línea por partida</strong> con SÍ/NO, nombre, medición, si es propio o subcontrata, horas por unidad (o €/ud de la subcontrata), días y precio. La medición y el rendimiento se cambian ahí mismo. Pasa el ratón por el nombre para leer la descripción completa.</li>
+        <li>Pulsa el <strong>nombre</strong> o <span class="man-btn">▸</span> y se abre debajo <strong>esa partida con todo</strong>: nombre, fase, unidad, descripción completa, receta, recargo, calculadora 📐, 📚 biblioteca y 🗑 eliminar. Vuelve a pulsar (<span class="man-btn">▾</span>) para cerrarla.</li>
+        <li><span class="man-btn">▤ Detallada</span>: todas las partidas abiertas a la vez. Útil para repasar descripciones antes de mandar el PDF.</li>
+      </ul>
+      <h4 class="man-h4">Qué es cada cosa de una partida (vista detallada)</h4>
+      <div class="manual-visual-box">
+        <div class="manual-visual-title">Ejemplo: trabajo hecho por nuestro equipo, por precio cerrado (PA)</div>
+        <div class="manual-mock-row">
+          <div class="mock-cell"><span class="callout">1</span><span class="mock-pill-yes">SÍ</span><span class="mock-pill-off">NO</span></div>
+          <div class="mock-cell" style="flex:2;"><span class="callout">2</span><strong>Retirada de muebles...</strong><br><small>Fase 1 · Descripción</small></div>
+          <div class="mock-cell"><span class="callout">3</span><span class="mock-box">1</span> 📐 <span class="mock-box">PA (cerrado)</span></div>
+          <div class="mock-cell"><span class="callout">4</span><span class="mock-pill-blue">Propio</span><span class="mock-pill-off">Subc.</span></div>
+          <div class="mock-cell"><span class="callout">5</span>h/ud: <span class="mock-box">18</span> <span class="mock-tag">🧱 Receta (1)</span><br><small>Coste MO: <strong>278,96 €</strong></small></div>
+          <div class="mock-cell"><span class="callout">6</span><span class="mock-badge">0,8 d</span></div>
+          <div class="mock-cell" style="text-align:right;"><span class="callout">7</span><strong>345,92 €</strong></div>
+        </div>
+        <ul class="manual-legend">
+          <li><span class="callout">1</span> <strong>SÍ / NO:</strong> si la partida entra o no. En NO se queda guardada pero no cuenta (útil para probar sin borrar).</li>
+          <li><span class="callout">2</span> <strong>Nombre, Fase y Descripción:</strong> se cambian escribiendo encima.</li>
+          <li><span class="callout">3</span> <strong>Medición y unidad.</strong> El botón <strong>📐</strong> abre una calculadora: una línea por pared o habitación (largo × alto o largo × ancho), <span class="man-btn"><b class="plus">+</b> Añadir línea</span> para más, y <span class="man-btn man-btn-blue">Aplicar</span> pone el total.</li>
+          <li><span class="callout">4</span> <strong>Propio / Subc.:</strong> "Propio" lo hace nuestro equipo; "Subc." lo hace otra empresa (fontanero, electricista, contenedores…).</li>
+          <li><span class="callout">5</span> <strong>Si es Propio:</strong> horas por unidad, y <strong>🧱 Receta</strong> para decir qué materiales gasta (ver apartado 7). Debajo, lo que nos cuesta a nosotros.<br>
+            <strong>Si es Subc.:</strong> <code>Sub€</code> = lo que nos cobra el subcontratista <strong>por unidad</strong>; <code>+%</code> = lo que le sumas nosotros; <code>D</code> = días que tarda. El botón <strong>📦 Tercero pone Mat.</strong> / <strong>🧱 Solo MO</strong> indica si él pone el material.</li>
+          <li><span class="callout">6</span> <strong>Días estimados</strong> que lleva esa partida con el equipo de la pestaña «Equipo y gastos».</li>
+          <li><span class="callout">7</span> <strong>Precio para el cliente</strong> (sin IVA) y, debajo, el precio por unidad. Incluye sueldos, Seguridad Social, furgoneta, comidas, gestoría y nuestro beneficio.</li>
+        </ul>
+      </div>
+
+      <!-- 6 -->
+      <h3 id="man-equipo" class="man-h">6. Equipo, plazo y datos de cálculo</h3>
+      <p>Todos los datos con los que se calcula están en <span class="man-tab">📋 Datos de cálculo</span> (bloque ⚙️ Empresa), <strong>una sola vez cada uno</strong>, y valen para todas las obras:</p>
+      <ol class="man-steps">
+        <li><strong>👥 Personas y sueldos:</strong> cada persona con su sueldo por día, su S.S. al mes y otros pagos fijos por ella.</li>
+        <li><strong>🚐 Gastos de cada día:</strong> comida por persona y furgoneta por km.</li>
+        <li><strong>💰 Beneficio y objetivo:</strong> recargo, coordinación y lo que queremos llevarnos cada uno al mes.</li>
+        <li><strong>⏳ Plazos, 🛡️ mínimos y 💳 cobro</strong>, y abajo los <strong>🏢 gastos fijos</strong> de la empresa (gestoría, seguro, coche, teléfonos, oficina, trastero…).</li>
+      </ol>
+      <p>En cada obra, en <span class="man-tab">👷 Equipo y plazo</span>, solo hay tres cosas:</p>
+      <ol class="man-steps">
+        <li><strong>Quién va:</strong> pulsamos los nombres.</li>
+        <li><strong>Kilómetros</strong> de ida y vuelta.</li>
+        <li><strong>Plazo:</strong> la app lo calcula; con <span class="man-btn">−1 semana</span> <span class="man-btn">+1 día</span>… lo ajustamos si conocemos la obra.</li>
+      </ol>
+      <div class="man-tip">La tarjeta <strong>📊 Resumen</strong> nos dice en una línea lo que cobramos, lo que nos cuesta y lo que gana la empresa. En <span class="man-tab">💰 Precio</span> vemos lo que se lleva cada uno al mes y hasta dónde podemos bajar.</div>
+
+      <!-- 7 -->
+      <h3 id="man-materiales" class="man-h">7. Materiales</h3>
+      <p>El presupuesto es de <strong>mano de obra</strong>. Los materiales los <strong>elige y paga el cliente aparte</strong>; el programa hace una <strong>lista orientativa</strong> para que sepa cuánto le van a costar y para que nosotros sepamos qué comprar.</p>
+      <ul class="man-list">
+        <li><strong>Receta de cada trabajo</strong> (pestaña «Partidas», botón <strong>🧱 Receta</strong>): qué material gasta y cuánto <strong>por cada unidad</strong> de trabajo. Ejemplo: por 1 m² de raseo, 0,55 sacos de mortero. Añade con <span class="man-btn"><b class="plus">+</b> Añadir otro material a este trabajo</span> y pulsa <span class="man-btn man-btn-blue">Guardar Receta Real</span>.</li>
+        <li><strong>Lista total</strong> (pestaña <span class="man-tab">🧱 Materiales</span>): suma todas las recetas. Si en obra vemos que hace falta más o menos, <strong>cambia el número</strong> en su casilla (sale "Ajustado manual"). El botón <strong>↺</strong> vuelve al cálculo automático.</li>
+        <li><span class="man-btn"><b class="plus">+</b> Añadir Material Suelto</span>: cosas que no van en ninguna receta (un grifo concreto, un rollo de cinta…).</li>
+        <li><strong>Catálogo de precios</strong> (abajo en la misma pestaña): cambia el precio de cualquier material escribiendo encima, búscalo con la lupa o crea uno con <span class="man-btn"><b class="plus">+</b> Nuevo Material al Catálogo</span>. El catálogo es <strong>común a todos los presupuestos</strong>.</li>
+      </ul>
+
+      <!-- 8 -->
+      <h3 id="man-otras" class="man-h">8. Herramientas, planos y calendario</h3>
+      <ul class="man-list">
+        <li><span class="man-tab">🧰 Herramientas</span>: lista de lo que hay que llevar según las fases de la obra y cuántas personas vamos. Marca la casilla de lo que ya está cargado en la furgoneta. Podemos filtrar por fase y añadir herramientas propias.</li>
+        <li><span class="man-tab">🖼️ Planos</span>: <span class="man-btn man-btn-blue"><b class="plus">+</b> Subir Plano / Foto</span>. Ponle título y descripción. Si marcamos "Incluir en PDF", sale en el presupuesto. Las fotos ocupan memoria: sube solo las necesarias.</li>
+        <li><span class="man-tab">🗓️ Plan de obra</span>: pon la <strong>fecha prevista de inicio</strong> y el programa calcula la fecha de entrega y dibuja las fases. Cuenta días laborables de lunes a viernes y <strong>salta los festivos</strong> de la lista de la pestaña «Empresa» (vienen los de Málaga capital 2026 y 2027; si la obra es en otro pueblo, cambia los dos locales).</li>
+      </ul>
+
+      <!-- 9 -->
+      <h3 id="man-pdf" class="man-h">9. Sacar el PDF para el cliente</h3>
+      <ol class="man-steps">
+        <li>Ve a la pestaña <span class="man-tab">📄 Vista PDF</span> y repasa el documento tal como lo verá el cliente.</li>
+        <li>Pulsa <span class="man-btn man-btn-orange">🖨️ Imprimir / Guardar Presupuesto en PDF</span>.</li>
+        <li>En la ventana que sale, en <strong>Destino</strong> elige <strong>"Guardar como PDF"</strong> (o "Microsoft Print to PDF").</li>
+        <li>Pulsa <strong>Guardar</strong> y ponle nombre, por ejemplo <code>PRES-2026-002 Calle Larios.pdf</code>.</li>
+        <li>Al cerrar la ventana de imprimir nos pregunta si lo hemos enviado: di que sí y queda como 📨 Enviado.</li>
+        <li>Mándalo por WhatsApp o email.</li>
+      </ol>
+      <div class="man-tip">La última página tiene el recuadro <strong>"Aceptación del Presupuesto"</strong>: el cliente marca qué extras quiere, pone nombre, DNI, fecha y firma. Pídele que nos lo devuelva firmado (foto o escaneado) antes de empezar: así queda claro qué entraba en el precio.</div>
+      <div class="man-tip">Aunque uses el modo oscuro, el PDF siempre sale en papel blanco A4. Si vemos cortes raros, en "Más opciones" deja los márgenes en "Predeterminados" y escala 100%.</div>
+
+      <!-- 9b -->
+      <h3 id="man-precio" class="man-h">9e. La pantalla de Precio</h3>
+      <p>Pestaña <span class="man-tab">💰 Precio</span>, en el bloque Presupuesto. Antes de mandar un presupuesto, mírala:</p>
+      <ol class="man-steps">
+        <li><strong>👥 Cada uno, al mes:</strong> lo que se lleva cada persona (sueldo + su parte del beneficio, a partes iguales). 🟢 dentro de nuestro objetivo, 🔴 por debajo.</li>
+        <li><strong>📉 Hasta dónde podemos bajar:</strong> el precio mínimo para no perder y el mínimo para cobrar nuestro objetivo, con el plazo calculado y si lo terminamos una o dos semanas antes.</li>
+        <li><strong>🆚 Competencia:</strong> escribe lo que pide otra empresa y nos dice si podemos igualarlo y cuánto nos quedaría.</li>
+      </ol>
+      <div class="man-tip">El objetivo mensual (2.500–3.500 €) se cambia en <span class="man-tab">⚙️ Empresa</span> → Precios mínimos y plazos reales.</div>
+
+      <h3 id="man-visitas" class="man-h">9d. Visita a pie de obra (tablet)</h3>
+      <p>Pestaña <span class="man-tab">📝 Visita</span>. Para tomar datos en casa del cliente y hacer el presupuesto después sin olvidar nada.</p>
+      <ol class="man-steps">
+        <li><span class="man-btn"><b class="plus">+</b> Nueva visita</span> y rellena el nombre, el teléfono y la dirección.</li>
+        <li>Añade dependencias con los botones <span class="man-btn"><b class="plus">+</b> 🚿 Baño</span>, <span class="man-btn"><b class="plus">+</b> 🛏️ Habitación</span>… Se numeran solas (Baño 1, Baño 2). "🌍 General / Exterior" ya viene puesta para lo que es de toda la casa o de fuera.</li>
+        <li>En cada dependencia: <strong>1 · medidas</strong> (largo, ancho, alto) y la app calcula suelo, paredes, techo y perímetro; <strong>2 · trabajos</strong>: pulsa los que van y la cantidad sale sola de las medidas (podemos cambiarla); <strong>3 · notas</strong> con un toque; <strong>4 · fotos</strong> de antes, durante o después.</li>
+        <li><span class="man-btn">Siguiente dependencia ➡</span> para ir una tras otra.</li>
+        <li>Al terminar: <span class="man-btn">✅ Convertir en presupuesto</span>. Se crea un presupuesto nuevo con todas las partidas, una línea de medición por dependencia y las notas arriba del Checklist.</li>
+      </ol>
+      <div class="man-tip">📷 Cada foto lleva grabada la fecha, la hora, el cliente y la dependencia. Sirve como prueba de "cómo estaba" y "cómo quedó".</div>
+
+      <h3 id="man-pagos" class="man-h">9c. Días y pagos al personal</h3>
+      <p>Pestaña <span class="man-tab">👥 Días y pagos</span>. Sustituye al papel donde apuntabas quién fue y lo que se le ha dado.</p>
+      <ol class="man-steps">
+        <li><strong>Una vez:</strong> en <span class="man-tab">⚙️ Empresa</span>, tarjeta "👤 Personas del equipo", añade a cada uno con su <strong>sueldo por día</strong> (ej.: peón 60 €).</li>
+        <li><strong>Cada día:</strong> pulsa el día en el calendario y marca quién vino: <strong>completa</strong> o <strong>media jornada</strong>, y de qué trabajó. Con <span class="man-btn">📋 Copiar</span> repites la gente del último día. Sábados, domingos y festivos también valen.</li>
+        <li><strong>Cada pago:</strong> <span class="man-btn">💶 Apuntar pago</span> con su fecha. Anticipo o cobro, es lo mismo: se resta de lo que le debemos. S.S. u otros gastos van como "Otro" y no se restan del sueldo.</li>
+        <li><strong>Tratos especiales:</strong> <span class="man-btn">🤝 Trato especial</span> si en una obra alguien cobra distinto de lo que le toca. El motivo es obligatorio, para que quede escrito.</li>
+        <li><strong>🧾 Recibí:</strong> imprime un justificante para que firme quien cobra.</li>
+      </ol>
+      <div class="man-tip">Cada tarjeta nos dice en grande <strong>lo que le debemos</strong> o si se le ha adelantado de más. Abajo vemos lo presupuestado en sueldos frente a lo real y lo que queda para la sociedad.</div>
+
+      <h3 id="man-horas" class="man-h">9b. Horas reales de la obra</h3>
+      <p>Pestaña <span class="man-tab">⏱️ Horas reales</span>. Sirve para saber si la obra va como presupuestaste y para que <strong>nuestros próximos presupuestos salgan más exactos</strong>.</p>
+      <ol class="man-steps">
+        <li>Cada día, en la partida en la que se ha trabajado, escribe las horas en <strong>"Sumar hoy"</strong> y pulsa <span class="man-btn">+</span> o Enter. Cuenta <strong>horas-persona</strong>: 2 personas × 8 horas = <strong>16</strong>.</li>
+        <li>Si prefieres, escribe directamente el total en <strong>"Horas reales (total)"</strong>.</li>
+        <li>La columna <strong>Desviación</strong> nos dice <strong>≈ En lo previsto</strong> (±10%), <strong>▲ más lento</strong> o <strong>▼ más rápido</strong>, con las horas de diferencia.</li>
+        <li>Arriba vemos el <strong>beneficio real estimado</strong>: lo que nos queda de verdad contando las horas de más o de menos (sueldos, furgoneta y comidas).</li>
+        <li>Al terminar un trabajo, pulsa <span class="man-btn">📚 Enseñar</span>: guarda en nuestra biblioteca las horas por unidad <strong>reales</strong>. El presupuesto de esta obra no cambia; el próximo que hagamos con esa partida ya saldrá con el rendimiento real.</li>
+      </ol>
+
+      <!-- 10 -->
+      <h3 id="man-facturas" class="man-h">10. Facturas y abonos</h3>
+      <p>Pestaña <span class="man-tab">🧾 Facturas</span>. Arriba vemos lo presupuestado, lo ya facturado, lo pendiente y los próximos números de factura.</p>
+
+      <h4 class="man-h4">a) Factura de anticipo o pago semanal</h4>
+      <ol class="man-steps">
+        <li>Pulsa <span class="man-btn">💶 Emitir Factura Anticipo / Pago Semanal</span>.</li>
+        <li>Revisa el <strong>concepto</strong> y pon el <strong>importe SIN IVA</strong> (el botón "Poner 25% del Total" lo calcula solo).</li>
+        <li>Comprueba la fecha y pulsa <span class="man-btn man-btn-blue">Emitir Factura Serie Normal</span>. Se abre la factura para imprimirla en PDF (igual que en el apartado 9).</li>
+      </ol>
+
+      <h4 class="man-h4">b) Factura final (al acabar la obra)</h4>
+      <ol class="man-steps">
+        <li>En la pestaña «Partidas» pon las <strong>mediciones reales</strong> de lo que se ha hecho de verdad.</li>
+        <li>En la pestaña «Facturas» pulsa <span class="man-btn man-btn-blue">🧾 Emitir Factura Final Base</span> (o la naranja <strong>"Base + Extras"</strong> si el cliente aceptó los extras).</li>
+        <li>Sale un resumen: trabajos, anticipos que se descuentan y base. Si está bien, <strong>Aceptar</strong>.</li>
+        <li>Los anticipos ya cobrados <strong>se descuentan solos</strong>.</li>
+      </ol>
+      <div class="man-warn">Solo puede haber <strong>una factura final</strong> vigente por obra. Si los anticipos superan lo hecho, el programa no la deja sacar: primero abona el anticipo que sobra.</div>
+
+      <h4 class="man-h4">c) Me he equivocado en una factura</h4>
+      <p>Las facturas <strong>no se borran nunca</strong> (lo exige Hacienda). Se corrigen así:</p>
+      <ol class="man-steps">
+        <li>En el historial, pulsa <span class="man-btn man-btn-red">↩️ Abonar (R-)</span> en la factura mala.</li>
+        <li>Escribe el motivo y pulsa <span class="man-btn man-btn-red">Emitir Abono (Serie Rectificativa)</span>. Sale una factura en negativo con la serie R- que anula la mala.</li>
+        <li>Corrige lo que estaba mal y emite la factura buena de nuevo.</li>
+      </ol>
+
+      <!-- 11 -->
+      <h3 id="man-copias" class="man-h">11. Copias de seguridad</h3>
+      <p>Con la carpeta conectada, el programa guarda todo en <code>datos\presupuestador_datos.json</code> y además hace <strong>una copia automática cada día</strong> en <code>datos\copias\</code> (guarda las de los últimos 30 días).</p>
+      <div class="man-warn">Si se estropea el disco D:, se pierde la carpeta entera con sus copias. Copia de vez en cuando la carpeta <code>Presupuestador_PRO</code> completa a otro disco o a un pendrive. Si la carpeta no está conectada, el programa nos lo recuerda con una barra amarilla.</div>
+      <ul class="man-list">
+        <li><strong>Volver a un día anterior:</strong> <span class="man-btn">📂 Restaurar Copia (.json)</span> y elige el archivo del día que queramos dentro de <code>datos\copias</code>.</li>
+        <li><strong>Pasar a otro ordenador:</strong> copia la carpeta <code>Presupuestador_PRO</code> entera, ábrela allí y conecta la carpeta: los datos aparecen solos.</li>
+        <li><strong>Hacer copia:</strong> pestaña «Empresa» → <span class="man-btn man-btn-blue">💾 Descargar Copia (.json)</span>. Se guarda en Descargas un archivo con la fecha. <strong>Llévalo a otro sitio</strong>: otro disco, un pendrive o nuestro correo.</li>
+        <li><strong>Ojo al restaurar:</strong> sustituye todo lo que haya ahora por lo de la copia.</li>
+        <li><span class="man-btn man-btn-red">🔄 Restablecer Datos Iniciales</span>: <strong>BORRA TODO</strong> y deja solo el ejemplo. No lo pulses sin haber hecho copia.</li>
+      </ul>
+
+      <!-- 12 -->
+      <h3 id="man-problemas" class="man-h">12. Problemas frecuentes</h3>
+      <dl class="man-faq">
+        <dt>He abierto el programa y está vacío o solo sale el ejemplo.</dt>
+        <dd>Pulsa <strong>📁 Conectar carpeta de datos</strong> (o <strong>Reconectar</strong>) y elige la carpeta del programa: los datos se cargan del archivo. Si aun así no aparece, usa <strong>Restaurar Copia</strong> con un archivo de <code>datos\copias</code>.</dd>
+        <dt>Arriba sale "❌ Error al guardar".</dt>
+        <dd>Púlsalo y vuelve a elegir la carpeta. Pasa si la carpeta se ha movido, se ha renombrado o el disco no está.</dd>
+        <dt>Sale "Memoria llena".</dt>
+        <dd>Hay demasiadas fotos. Haz una copia de seguridad y borra fotos de obras antiguas en la pestaña «Planos».</dd>
+        <dt>He hecho cambios en los archivos del programa y no se ven.</dt>
+        <dd>Pulsa <strong>Ctrl + F5</strong> para que el navegador recargue todo.</dd>
+        <dt>El precio de una partida me parece muy alto o muy bajo.</dt>
+        <dd>Revisa sus <strong>h/ud</strong> (horas por unidad), la <strong>medición</strong> y la <strong>unidad</strong>, y en la pestaña «Equipo y gastos» los sueldos y el recargo.</dd>
+        <dt>Quiero quitar un trabajo sin perderlo.</dt>
+        <dd>Ponlo en <strong>NO</strong>. Cuando lo vuelvas a necesitar, en <strong>SÍ</strong>.</dd>
+        <dt>No me deja emitir la factura final.</dt>
+        <dd>O ya hay una factura final vigente (abónala primero), o los anticipos superan lo hecho. El aviso nos dice cuál de los dos.</dd>
+      </dl>
+
+      <!-- 13 -->
+      <h3 id="man-glosario" class="man-h">13. Palabras raras explicadas</h3>
+      <dl class="man-glossary">
+        <dt>m²</dt><dd>Metro cuadrado: superficie (suelos, paredes, techos).</dd>
+        <dt>ml</dt><dd>Metro lineal: longitud (rodapié, tubería, encimera).</dd>
+        <dt>ud</dt><dd>Unidad: piezas sueltas (un enchufe, un inodoro, una puerta).</dd>
+        <dt>PA</dt><dd>Partida Alzada: precio cerrado por un trabajo entero, sin medir.</dd>
+        <dt>h/ud</dt><dd>Horas que tarda una persona en hacer una unidad.</dd>
+        <dt>MO</dt><dd>Mano de obra.</dd>
+        <dt>Subcontrata</dt><dd>Trabajo que hace otra empresa y nosotros se lo cobramos al cliente con nuestro recargo.</dd>
+        <dt>Base imponible</dt><dd>El precio sin IVA.</dd>
+        <dt>Extra opcional</dt><dd>Trabajo que se ofrece aparte y no suma al total hasta que el cliente lo acepta.</dd>
+        <dt>Anticipo / certificación</dt><dd>Factura parcial a cuenta durante la obra; la final la descuenta.</dd>
+        <dt>Abono / rectificativa</dt><dd>Factura en negativo (serie R-) que anula otra que estaba mal.</dd>
+        <dt>Roadmap</dt><dd>El calendario de la obra por fases.</dd>
+      </dl>
+    </div>
+  </section>
+</main>
+
+<!-- MODALES -->
+<div id="staffModal" class="modal-backdrop">
+  <div class="modal" id="staffModalBody"></div>
+</div>
+
+<div id="measureModal" class="modal-backdrop">
+  <div class="modal">
+    <div class="card-header"><h3 class="card-title" id="measureModalTitle">Calculadora de Medidas</h3><button class="btn btn-sm" onclick="closeMeasureModal()">✕</button></div>
+    <p id="measureIntro" class="modal-intro"></p>
+    <div id="measureLinesList"></div>
+    <button class="btn btn-sm" onclick="addMeasureLine()" style="margin-top:8px;"><b class="plus">+</b> Añadir línea</button>
+    <div style="margin-top:16px; padding-top:12px; border-top:1px solid var(--border-light); display:flex; justify-content:space-between; align-items:center;">
+      <strong>Total: <span id="measureTotalDisplay">0,00</span> <i class="info-icon" data-help="medirTotal">i</i></strong>
+      <div style="display:flex; gap:8px;"><button class="btn" onclick="closeMeasureModal()">Cancelar</button><button class="btn btn-primary" onclick="applyMeasureModal()">Aplicar a la medición</button></div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: EDITOR DE RECETA DE MATERIALES POR PARTIDA -->
+<div id="recipeModal" class="modal-backdrop">
+  <div class="modal" style="max-width:48rem;">
+    <div class="card-header"><h3 class="card-title"><span id="recipeModalTitle">Editar Receta de Materiales</span> <i class="info-icon" data-help="receta">i</i></h3><button class="btn btn-sm" onclick="closeRecipeModal()">✕</button></div>
+    <p id="recipeModalSubtitle" class="modal-intro"></p>
+    <div class="lf-slot" data-select-filter data-id="sfRecipe" data-scope="#recipeLinesList" data-placeholder="Buscar en los desplegables de material (ej: cemento, cola)…"></div>
+    <div id="recipeLinesList"></div>
+    <button class="btn btn-sm" onclick="addRecipeLine()" style="margin-top:8px;"><b class="plus">+</b> Añadir otro material a este trabajo</button>
+    <div style="margin-top:16px; padding-top:12px; border-top:1px solid var(--border-light); display:flex; justify-content:flex-end; gap:8px;">
+      <button class="btn" onclick="closeRecipeModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveRecipeModal()">Guardar receta</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: EMITIR FACTURA DE ANTICIPO / PAGO PARCIAL -->
+<div id="advanceInvModal" class="modal-backdrop">
+  <div class="modal" style="max-width:560px;">
+    <div class="card-header"><h3 class="card-title">Emitir Factura de Anticipo / Pago Semanal</h3><button class="btn btn-sm" onclick="closeAdvanceInvModal()">✕</button></div>
+    <p class="modal-intro">Factura parcial durante la obra: la entrada, un pago semanal… Pon el importe <strong>sin IVA</strong>: el programa suma el IVA. En la factura final se <strong>descuenta sola</strong>.</p>
+    <div class="form-group" style="margin-bottom:10px;">
+      <label>Concepto de la factura <i class="info-icon" data-help="conceptoFactura">i</i></label>
+      <input type="text" id="advInvConcept" value="Entrega inicial 25% a cuenta de reforma integral">
+    </div>
+    <div class="form-group" style="margin-bottom:10px;">
+      <label>Importe Base (Sin IVA) en € <i class="info-icon" data-help="importeFactura">i</i> — <button type="button" class="btn btn-sm" onclick="fill25PercentAdvance()">Poner la entrada (% de la pestaña «Equipo y gastos»)</button></label>
+      <input type="number" step="0.01" id="advInvAmount" oninput="updateAdvancePreview()">
+      <div id="advInvPreview" class="inv-preview"></div>
+    </div>
+    <div class="form-group">
+      <label>Fecha de emisión <i class="info-icon" data-help="fechaFactura">i</i></label>
+      <input type="date" id="advInvDate">
+    </div>
+    <div style="margin-top:16px; display:flex; justify-content:flex-end; gap:8px;">
+      <button class="btn" onclick="closeAdvanceInvModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="confirmAdvanceInvoice()">Emitir factura (serie F-)</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: EMITIR ABONO / RECTIFICATIVA -->
+<div id="rectifyModal" class="modal-backdrop">
+  <div class="modal" style="max-width:560px;">
+    <div class="card-header"><h3 class="card-title" id="rectifyModalTitle">Emitir Abono / Factura Rectificativa</h3><button class="btn btn-sm" onclick="closeRectifyModal()">✕</button></div>
+    <p class="modal-intro">
+      Anula la factura con otra <strong>en negativo</strong> de la serie <strong>R-</strong>, que la menciona, como exige Hacienda. La original no se borra.<br>Después corrige lo que estuviera mal y emite la factura buena.
+    </p>
+    <div class="form-group" style="margin-bottom:10px;">
+      <label>Motivo del abono / rectificación <i class="info-icon" data-help="motivoAbono">i</i></label>
+      <input type="text" id="rectifyReason" value="Reajuste de mediciones y trabajos reales ejecutados en obra">
+    </div>
+    <div class="form-group">
+      <label>Fecha del Abono <i class="info-icon" data-help="fechaFactura">i</i></label>
+      <input type="date" id="rectifyDate">
+    </div>
+    <div style="margin-top:16px; display:flex; justify-content:flex-end; gap:8px;">
+      <button class="btn" onclick="closeRectifyModal()">Cancelar</button>
+      <button class="btn btn-danger" onclick="confirmRectifyInvoice()">Emitir Abono (Serie Rectificativa)</button>
+    </div>
+  </div>
+</div>
+
+<div id="projectsOverviewModal" class="modal-backdrop">
+  <div class="modal modal-wide">
+    <div class="card-header"><h3 class="card-title">📊 Mis Presupuestos <i class="info-icon" data-help="misPresupuestos">i</i></h3><button class="btn btn-sm" onclick="closeProjectsOverview()">✕</button></div>
+    <div class="lf-slot" data-list-filter data-id="lfOverview" data-scope="#projectsOverviewBody" data-rows=".items-table tbody tr" data-placeholder="Buscar presupuesto (cliente, calle, nº…)"></div>
+    <div id="projectsOverviewBody"></div>
+  </div>
+</div>
+
+<div id="newProjectModal" class="modal-backdrop">
+  <div class="modal">
+    <div class="card-header"><h3 class="card-title">Nuevo Presupuesto</h3><button class="btn btn-sm" onclick="closeNewProjectModal()">✕</button></div>
+    <div class="form-group"><label>Nombre del cliente o de la obra <i class="info-icon" data-help="nombreNuevo">i</i></label><input type="text" id="newProjName" placeholder="Ej: Reforma baño — Calle Larios" onkeydown="if(event.key==='Enter') confirmNewProject()"></div>
+    <div class="lib-search-head" style="margin-top:1rem;">¿Cómo queremos empezar? <i class="info-icon" data-help="comoEmpezar">i</i></div>
+    <div id="newProjOptions" class="np-options"></div>
+    <small style="color:var(--text-muted);">El equipo, sueldos y gastos se copian del presupuesto que tenemos abierto (las plantillas traen los suyos).</small>
+    <div style="margin-top:16px; display:flex; justify-content:flex-end; gap:8px;"><button class="btn" onclick="closeNewProjectModal()">Cancelar</button><button class="btn btn-primary" onclick="confirmNewProject()">Crear presupuesto</button></div>
+  </div>
+</div>
+
+<div id="addItemModal" class="modal-backdrop">
+  <div class="modal">
+    <div class="card-header"><h3 class="card-title">Añadir Partida de Mano de Obra</h3><button class="btn btn-sm" onclick="closeAddItemModal()">✕</button></div>
+    <div class="form-group" style="margin-bottom:0.8rem;"><label>Capítulo donde se añade <i class="info-icon" data-help="capituloDestino">i</i></label><select id="newItemChapter"></select></div>
+    <div class="lib-search-box">
+      <div class="lib-search-head">📚 Desde mi biblioteca <i class="info-icon" data-help="desdeBiblioteca">i</i></div>
+      <div class="ml-head" style="grid-template-columns:1fr 8rem; padding-right:0;"><span>Buscar partida</span><span>Medición</span></div>
+      <div style="display:grid; grid-template-columns:1fr 8rem; gap:8px;">
+        <input type="text" id="libSearch" placeholder="🔍 Escribe para buscar (ej: alicatado, pladur, enchufe…)" oninput="renderLibrarySearch()">
+        <input type="number" step="0.01" id="libQty" value="1" title="Medición con la que se añade">
+      </div>
+      <small style="color:var(--text-muted);">La medición es con la que entra la partida; luego se puede cambiar.</small>
+      <div id="libSearchResults" class="lib-results"></div>
+    </div>
+    <div class="lib-search-head" style="margin-top:1rem;">✏️ O crea una partida nueva <i class="info-icon" data-help="partidaNueva">i</i></div>
+    <p class="modal-intro">Para un trabajo que no está en nuestra biblioteca. Se crea como trabajo <strong>propio</strong> (de nuestro equipo); si es de una subcontrata, cámbialo luego en su detalle.</p>
+    <div class="form-grid">
+      <div class="form-group" style="grid-column:1/-1;"><label>Nombre de la Partida <i class="info-icon" data-help="colPartida">i</i></label><input type="text" id="newItemName"></div>
+      <div class="form-group" style="grid-column:1/-1;"><label>Descripción <i class="info-icon" data-help="descripcion">i</i></label><textarea rows="2" id="newItemDesc"></textarea></div>
+      <div class="form-group"><label>Fase de obra <i class="info-icon" data-help="fase">i</i></label><select id="newItemPhase"></select></div>
+      <div class="form-group"><label>Unidad <i class="info-icon" data-help="unidad">i</i></label><select id="newItemUnit"><option value="m²">m²</option><option value="ml">ml</option><option value="ud">ud</option><option value="PA">PA (cerrado)</option><option value="h">h</option></select></div>
+      <div class="form-group"><label>Medición <i class="info-icon" data-help="colMedicion">i</i></label><input type="number" step="0.01" id="newItemQty" value="1"></div>
+      <div class="form-group"><label>Horas por unidad (1 persona) <i class="info-icon" data-help="horasUd">i</i></label><input type="number" step="0.05" id="newItemHours" value="1"></div>
+    </div>
+    <div style="margin-top:16px; display:flex; justify-content:flex-end; gap:8px;"><button class="btn" onclick="closeAddItemModal()">Cancelar</button><button class="btn btn-primary" onclick="saveNewItem()">Añadir</button></div>
+  </div>
+</div>
+
+<div id="addChapterModal" class="modal-backdrop">
+  <div class="modal" style="max-width:440px;">
+    <div class="card-header"><h3 class="card-title">Nuevo Capítulo</h3><button class="btn btn-sm" onclick="closeAddChapterModal()">✕</button></div>
+    <div class="form-group"><label>Nombre del Capítulo</label><input type="text" id="newChapterName" placeholder="Ej: Fontanería, Pintura, Cocina">
+      <p class="modal-intro" style="margin-top:0.6rem;">Un grupo de trabajos que sale en el PDF con su título y su subtotal. Se crea <strong>📌 En Base</strong> (suma al precio); si es un extra opcional, pulsa luego ese botón para cambiarlo.</p></div>
+    <div style="margin-top:16px; display:flex; justify-content:flex-end; gap:8px;"><button class="btn" onclick="closeAddChapterModal()">Cancelar</button><button class="btn btn-primary" onclick="saveNewChapter()">Crear</button></div>
+  </div>
+</div>
+
+<div id="addCatalogMatModal" class="modal-backdrop">
+  <div class="modal" style="max-width:480px;">
+    <div class="card-header"><h3 class="card-title">Nuevo Material al Catálogo</h3><button class="btn btn-sm" onclick="closeAddCatalogMatModal()">✕</button></div>
+    <p class="modal-intro">Un material que no está en el catálogo, para usarlo en recetas o como material suelto. Vale para <strong>todos</strong> los presupuestos.</p>
+    <div class="form-grid">
+      <div class="form-group" style="grid-column:1/-1;"><label>Nombre del Material</label><input type="text" id="catMatName" placeholder="Ej: Lija de agua grano 400"></div>
+      <div class="form-group"><label>Categoría <i class="info-icon" data-help="matCategoria">i</i></label><select id="catMatCat"><option value="Albañilería y Agarre">Albañilería y Agarre</option><option value="Yeso, Pladur y Pintura">Yeso, Pladur y Pintura</option><option value="Suelos y Azulejos">Suelos y Azulejos</option><option value="Fontanería y Baño">Fontanería y Baño</option><option value="Electricidad y Clima">Electricidad y Clima</option><option value="Ventanas, Puertas y Cocina">Ventanas, Puertas y Cocina</option></select></div>
+      <div class="form-group"><label>Unidad de compra <i class="info-icon" data-help="matUnidad">i</i></label><select id="catMatUnit"><option value="ud">ud</option><option value="m²">m²</option><option value="ml">ml</option></select></div>
+      <div class="form-group"><label>Precio con IVA (€) <i class="info-icon" data-help="precioCatalogo">i</i></label><input type="number" step="0.1" id="catMatPrice" value="10"></div>
+    </div>
+    <div style="margin-top:16px; display:flex; justify-content:flex-end; gap:8px;"><button class="btn" onclick="closeAddCatalogMatModal()">Cancelar</button><button class="btn btn-primary" onclick="saveNewCatalogMat()">Guardar</button></div>
+  </div>
+</div>
+
+<div id="addExtraMatModal" class="modal-backdrop">
+  <div class="modal" style="max-width:480px;">
+    <div class="card-header"><h3 class="card-title">Añadir Material Extra a Esta Obra</h3><button class="btn btn-sm" onclick="closeAddExtraMatModal()">✕</button></div>
+    <p class="modal-intro">Material para esta obra que no sale de ninguna receta (un grifo concreto, cinta, un mueble…). Se suma a la lista de materiales y al PDF como previsión.</p>
+    <div class="form-grid">
+      <div class="form-group" style="grid-column:1/-1;"><label>Elegir Material del Catálogo</label><div class="lf-slot" data-select-filter data-id="sfExtraMat" data-scope="#extraMatSelect" data-placeholder="Escribe para buscar (elige el primero que coincida)…"></div><select id="extraMatSelect" onchange="updateExtraMatUnit()"></select></div>
+      <div class="form-group"><label>Cantidad necesaria <i class="info-icon" data-help="cantidadExtra">i</i></label><div style="display:flex; gap:6px; align-items:center;"><input type="number" step="0.1" id="extraMatQty" value="1"><strong id="extraMatUnit"></strong></div></div>
+    </div>
+    <div style="margin-top:16px; display:flex; justify-content:flex-end; gap:8px;"><button class="btn" onclick="closeAddExtraMatModal()">Cancelar</button><button class="btn btn-primary" onclick="saveExtraMat()">Añadir</button></div>
+  </div>
+</div>
+
+<div id="addToolModal" class="modal-backdrop">
+  <div class="modal" style="max-width:480px;">
+    <div class="card-header"><h3 class="card-title">Añadir Herramienta Personalizada</h3><button class="btn btn-sm" onclick="closeAddToolModal()">✕</button></div>
+    <p class="modal-intro">Una herramienta que no está en la lista. Se guarda en el catálogo y saldrá en <strong>todas</strong> las obras que tengan trabajos de esa fase.</p>
+    <div class="form-grid">
+      <div class="form-group" style="grid-column:1/-1;"><label>Nombre de la Herramienta</label><input type="text" id="newToolName" placeholder="Ej: Nivel láser rotativo"></div>
+      <div class="form-group"><label>Fase <i class="info-icon" data-help="faseHerramienta">i</i></label><select id="newToolPhase"></select></div>
+      <div class="form-group"><label>Cantidad según equipo <i class="info-icon" data-help="cantidadHerramienta">i</i></label><select id="newToolScope"><option value="team">Por cuadrilla (compartida)</option><option value="person">Por cada operario</option><option value="official">Por cada oficial</option></select></div>
+    </div>
+    <div style="margin-top:16px; display:flex; justify-content:flex-end; gap:8px;"><button class="btn" onclick="closeAddToolModal()">Cancelar</button><button class="btn btn-primary" onclick="saveNewTool()">Añadir</button></div>
+  </div>
+</div>
+
+<script src="js/datos_base.js"></script>
+<script src="js/motor_calculo.js"></script>
+<script src="js/puestos.js"></script>
+<script src="js/personal_pagos.js"></script>
+<script src="js/visitas.js"></script>
+<script src="js/materiales_compra.js"></script>
+<script src="js/pantalla_precio.js"></script>
+<script src="js/datos_calculo.js"></script>
+<script src="js/render_ui.js"></script>
+<script src="js/render_pdf.js"></script>
+<script src="js/almacen_archivo.js"></script>
+<script src="js/plantillas_biblioteca.js"></script>
+<script src="js/catalogo_ampliado.js"></script>
+<script src="js/seguimiento.js"></script>
+<script src="js/horas_reales.js"></script>
+<script src="js/filtro_listas.js"></script>
+<script src="js/deshacer.js"></script>
+<script src="js/ayuda.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
